@@ -40,7 +40,7 @@ Roughly:
 * Add a temporary implementation (likely inefficient), wrapping the existing net/http Client.
 * Port code to use it. See if we're still happy.
 * Discuss, revise.
-* Copy `net/http` and `golang.org/x/net/http2` code into `httpclient`.
+* Copy `net/http` and `golang.org/x/net/http2` code into `httpclient` (likely several packages).
 * Benchmark, tune, revise API as needed.
 * Redo the "legacy" `net/http` and `golang.org/x/net/http2` client APIs as wrappers around `httpclient`
 
