@@ -21,10 +21,20 @@ There are several problems with that code, listed below.
 
 ## Too easy to not call Response.Body.Close.
 
-The code above forgets to call `Response.Body.Close`. But if we read
-to EOF, the close isn't strictly required, but if the JSON above is
-invalid then it leaks the Transport's internal TCP connection, keeping
-it open forever and tying up some memory and a file descriptor.
+The code above forgets to call `Response.Body.Close`, which means we
+leak a TCP connection, some goroutines, and a file descriptor.
+
+We say that closing a `Response.Body` is the responsibility of the
+user, but for better or worse we don't require it when the body was
+read to EOF. In that case we immediately recycle the connection to the
+internal connection pool. That might train people to forget to close
+it. In any case, it's not an interesting detail that users should need
+to worry about.
+
+The code above may leak the Body for two reasons:
+
+1. invalid JSON causes the Decoder to return early
+2. the JSON is valid, but after the decoded value (say, a JSON object), there is an unbuffered `"\n"`, which the JSON decoder doesn't need to read to return, but the keeps the connection alive. ([#20528](https://github.com/golang/go/issues/20528))
 
 Unlike the HTTP server's
 [`Handler`](https://golang.org/pkg/net/http/#Handler), on the client
@@ -46,7 +56,6 @@ func GetFoo() (*T, error) {
     }
     return t, nil
 ```
-
 
 ## Too easy to not check return status codes
 
@@ -78,16 +87,48 @@ which class it's in, and get a `String` representation without having two redund
 * https://golang.org/pkg/net/http/#Response.StatusCode (the int)
 * https://golang.org/pkg/net/http/#Response.Status (the string, which we have to synthesize anyway for HTTP/2 where it doesn't appear on the wire)
 
+## Context support is oddly bolted on
+
+The code above doesn't use contexts.
+
+Context support was added late (in Go 1.7) with, and the only way to make a request with a context
+is to make an expensive not-fully-deep but not-super-shallow clone of a Request with
+[`Request.WithContext`](https://golang.org/pkg/net/http/#Request.WithContext).
+
+If you knew your requests shouldn't take longer than 5 seconds but you
+always wanted to accept a context for cancelation, you'd write
+something like this today:Today you'd write somethin to write:
+
+```go
+func GetFoo(ctx context.Context) (*T, error) {
+    req, err := http.NewRequest("GET", "http://example.com", nil)
+    if err != nil {
+        return nil, err 
+    }
+    ctx, cancel := context.WithTimeout(ctx, 5 * time.Second)
+    defer cancel()
+    req = req.WithContext(ctx)
+    if err != nil {
+        return nil, err
+    }
+    defer res.Body.Close()
+    if res.StatusCode < 200 || res.StatusCode > 299 {
+        return nil, fmt.Errorf("bogus status: got %v", res.Status)
+    }
+    t := new(T)
+    if err := json.NewDecoder(res.Body).Decode(t); err != nil {
+        return nil, err
+    }
+    return t, nil
+```
+
 ## Proper usage is too many lines of boilerplate
 
-* NewRequest returning an error
-* Contexts
-* Error checks
-* Status checks
-* Closing body
+The latest code in the prior section is finally complete, but it's
+super verbose.
 
-
-
+It's no surprise that people commonly skip some of it until their
+omission causes problems.
 
 ## Overloaded package types
 
@@ -172,24 +213,43 @@ Four generations of HTTP cancelation:
 
 That's a lot of API bloat for users to read, and a pain for us to maintain.
 
-## Context support is oddly bolted on
-
-Context support was added late (in Go 1.7) with, and the only way to make a request with a context
-is to make an expensive not-fully-deep but not-super-shallow clone of a Request with
-[`Request.WithContext`](https://golang.org/pkg/net/http/#Request.WithContext).
-
-It should be much easier. Timeouts should also be much easier
-per-request for people who don't want to make a new
-`context.WithTimeout` and remember to cancel it.
-
 ## HTTP/2 support is oddly bolted on
 
 * No HTTP/2-specific API
 * Magic and confusing auto-upgrading to HTTP/2
+* The connection pool management (especially for new connections of
+  unknown types) between HTTP/1 and HTTP/2 is ... special. And people
+  want more control, but we lack the types to give them control, given
+  our weird split over two packages.
+
+Amusingly, the HTTP/2 support works because it latches onto an
+otherwise-unused mechanism
+([`Transport.RegisterProtocol`](https://golang.org/pkg/net/http/#Transport.RegisterProtocol))
+we added to support non-HTTP client support, such as "file" or "ftp".
+Turns out nobody used that. We should probably remove it when making HTTP/2 more integrated.
 
 ## Errors are not consistent or well defined
 
+* many exported error variables are no longer used
 * TODO: bug reference
 * TODO: reference issue of returning non-zero for both (Response, error) on body write error with header response (e.g. Unauthorized on a large POST)
 
+## httputil.ClientConn
 
+Prior to Go 1, the net/http package had a ClientConn type (a precursor
+to the Transport) that we moved to [`net/http/httputil.ClientConn`](https://golang.org/pkg/net/http/httputil/#ClientConn)
+just before releasing Go 1. We should've deleted it instead. Today it's documented like:
+
+> ClientConn is an artifact of Go's early HTTP implementation. It is
+> low-level, old, and unused by Go's current HTTP stack. We should
+> have deleted it before Go 1.
+>
+> Deprecated: Use Client or Transport in package net/http instead.
+
+At least that documentation seems to have stopped the bug reports and
+feature requests.
+
+Unfortunately it lives in the same package as `ReverseProxy`, which is
+high quality, maintained, and widely used. To have such an old buggy
+relic next to a nice type surely gives some users second thoughts
+about the nice part.
