@@ -1,29 +1,82 @@
 # Problems with the net/http Client API
 
-An incomplete list:
+This page collects problems with the existing `net/http` client interface.
 
-## Overloaded package types
+Consider the following typical code you see Go programmers write:
 
-The [`net/http`](https://golang.org/pkg/net/http/) package reuses several types (notably Request) for both Server and Client, with differing semantics on the struct fields.
+```go
+func GetFoo() (*T, error) {
+    res, err := http.Get("http://example.com")
+    if err != nil {
+        return nil, err
+    }
+    t := new(T)
+    if err := json.NewDecoder(res.Body).Decode(t); err != nil {
+        return nil, err
+    }
+    return t, nil
+```
 
-Examples:
-
-* https://golang.org/pkg/net/http/#Request.URL
-* https://golang.org/pkg/net/http/#Request.Body
-* https://golang.org/pkg/net/http/#Request.Header
-* https://golang.org/pkg/net/http/#Request.Close
-* https://golang.org/pkg/net/http/#Request.Host
-* https://golang.org/pkg/net/http/#Request.Form
+There are several problems with that code, listed below.
 
 ## Too easy to not call Response.Body.Close.
 
-It's too easy to not close a Response.Body and leak or not reuse connections.
+The code above forgets to call `Response.Body.Close`. But if we read
+to EOF, the close isn't strictly required, but if the JSON above is
+invalid then it leaks the Transport's internal TCP connection, keeping
+it open forever and tying up some memory and a file descriptor.
 
-... no lifetime/scope after which the package can clean up for the user.
+Unlike the HTTP server's
+[`Handler`](https://golang.org/pkg/net/http/#Handler), on the client
+side we have no scope after which we can do cleanup for the caller.
+
+Fortunately the `Response.Body` is defined to always be non-nil so to
+fix that, we defer a `Close` to cover both exit paths:
+
+```go
+func GetFoo() (*T, error) {
+    res, err := http.Get("http://example.com")
+    if err != nil {
+        return nil, err
+    }
+    defer res.Body.Close()
+    t := new(T)
+    if err := json.NewDecoder(res.Body).Decode(t); err != nil {
+        return nil, err
+    }
+    return t, nil
+```
+
 
 ## Too easy to not check return status codes
 
-...
+The code above forgets to check the HTTP status in
+`Response.StatusCode`. We probably only cared about 2xx responses, so:
+
+```go
+func GetFoo() (*T, error) {
+    res, err := http.Get("http://example.com")
+    if err != nil {
+        return nil, err
+    }
+    defer res.Body.Close()
+    if res.StatusCode < 200 || res.StatusCode > 299 {
+        return nil, fmt.Errorf("bogus status: got %v", res.Status)
+    }
+    t := new(T)
+    if err := json.NewDecoder(res.Body).Decode(t); err != nil {
+        return nil, err
+    }
+    return t, nil
+```
+
+## Untyped HTTP Statuses
+
+The status code is just an untyped integer. It'd be better as type so it could have methods to ask
+which class it's in, and get a `String` representation without having two redundant fields:
+
+* https://golang.org/pkg/net/http/#Response.StatusCode (the int)
+* https://golang.org/pkg/net/http/#Response.Status (the string, which we have to synthesize anyway for HTTP/2 where it doesn't appear on the wire)
 
 ## Proper usage is too many lines of boilerplate
 
@@ -32,6 +85,41 @@ It's too easy to not close a Response.Body and leak or not reuse connections.
 * Error checks
 * Status checks
 * Closing body
+
+
+
+
+## Overloaded package types
+
+The [`net/http`](https://golang.org/pkg/net/http/) package reuses several types
+(notably [`Request`](https://golang.org/pkg/net/http/#Request)) for both Server and Client,
+with differing semantics on the struct fields.
+
+Examples:
+
+* https://golang.org/pkg/net/http/#Request.URL -- "For server requests the URL is parsed from the URI
+  supplied on the Request-Line as stored in RequestURI.  For
+  most requests, fields other than Path and RawQuery will be
+  empty. For client requests, the URL's Host specifies the server to
+  connect to, while the Request's Host field optionally
+  specifies the Host header value to send in the HTTP
+  request"
+* https://golang.org/pkg/net/http/#Request.Header -- different fields are special for client vs server and omitted or prioritized from other fields (or automatic). This regularly confuses people.
+* https://golang.org/pkg/net/http/#Request.Body -- ReadCloser, but package closes for client, but user closes for server
+* https://golang.org/pkg/net/http/#Request.GetBody -- unused by server
+* https://golang.org/pkg/net/http/#Request.ContentLength -- Negative one means unknown, but for client requests 0 also means unknown, or might mean actually zero. So we had to introduce the [`http.NoBody` variable](https://golang.org/pkg/net/http/#NoBody) to disambiguate.
+* https://golang.org/pkg/net/http/#Request.TransferEncoding -- effectively unused, as chunking (the only common Transfer-Encoding) is automatic
+* https://golang.org/pkg/net/http/#Request.Close -- used by clients, but not server (and its use by clients is a bit weird with HTTP/2). This would be better handled with some connection pool abstraction
+* https://golang.org/pkg/net/http/#Request.Host -- for servers, what the client sent in HTTP/1 Host header or in HTTP/2 `:authority` (unspecified what happens if both are present). For clients, it's optional and overrides the Host header sent in HTTP/1 requests, and maybe the HTTP/2 `:authority`. TODO: look it up.
+* https://golang.org/pkg/net/http/#Request.Form -- just a place for ParseForm (as called by server handlers) to stash stuff. Ignored by the client.
+* https://golang.org/pkg/net/http/#Request.PostForm -- same as Form
+* https://golang.org/pkg/net/http/#Request.MultipartForm -- same as Form
+* https://golang.org/pkg/net/http/#Request.Trailer -- reasonably consistent, but complicated: for clients, a map that must be half populated (keys) at the beginning, and then fully populated (the values) before the body returns EOF. For servers, the same: the map gets populated at body EOF.
+* https://golang.org/pkg/net/http/#Request.RemoteAddr -- only for servers, and loosely defined ("and has no defined format") but usually "ip:port"-ish.
+* https://golang.org/pkg/net/http/#Request.RequestURI -- only for servers
+* https://golang.org/pkg/net/http/#Request.TLS -- only for servers
+* https://golang.org/pkg/net/http/#Request.Cancel -- only for clients, and deprecated (see below)
+* https://golang.org/pkg/net/http/#Request.Response -- only for clients
 
 ## Types too transparent
 
@@ -104,5 +192,4 @@ per-request for people who don't want to make a new
 * TODO: bug reference
 * TODO: reference issue of returning non-zero for both (Response, error) on body write error with header response (e.g. Unauthorized on a large POST)
 
-## Untyped HTTP Statuses
 
