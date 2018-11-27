@@ -58,6 +58,14 @@ func (s Status) IsSuccess() bool {
 	return s.code >= 200 && s.code <= 299
 }
 
+// IsRedirection reports whether s is in the Client Error (3xx) status code
+// class, as defined by RFC 7231 section 6.4.
+//
+// See: https://tools.ietf.org/html/rfc7231#section-6.4
+func (s Status) IsRedirection() bool {
+	return s.code >= 300 && s.code <= 399
+}
+
 // IsClientError reports whether s is in the Client Error (4xx) status code class,
 // as defined by RFC 7231 section 6.5.
 func (s Status) IsClientError() bool {
