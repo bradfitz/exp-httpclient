@@ -1,3 +1,7 @@
+// Copyright 2018 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package http
 
 // Status is an HTTP status code.
@@ -26,8 +30,9 @@ func (s Status) Code() int { return int(s.code) }
 // For HTTP/1.x responses, this is exactly what the server sent in the
 // "reason-phrase" of the "status-line", per RFC 7230 Section 3.1.2.
 //
-// For HTTP/2 responses, which dropped reason phrases, this is from a
-// table of common status codes.
+// For HTTP/2 responses, which dropped reason phrases, or if the
+// HTTP/1.x reason-phrase is empty, then Text returns the typical
+// description from the specs.
 //
 // The text does not contain the number.
 func (s Status) Text() string {

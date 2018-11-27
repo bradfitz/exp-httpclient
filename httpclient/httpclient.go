@@ -3,7 +3,10 @@
 // license that can be found in the LICENSE file.
 
 // Package httpclient is an experimental design for a new Go HTTP client.
-package httpclient
+//
+// It does not work. Do not use it. It exists for brainstorming,
+// prototyping, and reviewing godoc only.
+package httpclient // import "inet.af/httpclient"
 
 import (
 	"context"
@@ -13,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bradfitz/rethink-http/http"
+	"inet.af/http"
 )
 
 type Request struct {
