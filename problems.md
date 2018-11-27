@@ -97,7 +97,7 @@ is to make an expensive not-fully-deep but not-super-shallow clone of a Request 
 
 If you knew your requests shouldn't take longer than 5 seconds but you
 always wanted to accept a context for cancelation, you'd write
-something like this today:Today you'd write somethin to write:
+something like this today:
 
 ```go
 func GetFoo(ctx context.Context) (*T, error) {
