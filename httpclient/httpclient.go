@@ -19,6 +19,9 @@ import (
 	"inet.af/http"
 )
 
+// Request is an HTTP client request.
+//
+// It can only be used once.
 type Request struct {
 	method string
 	url    string
@@ -26,23 +29,20 @@ type Request struct {
 	body io.ReadCloser
 }
 
-// Get returns a new GET request to the provided URL.
-func Get(url string) *Request { return NewRequest("GET", url) }
+// NewGet returns a new GET request to the provided URL.
+func NewGet(url string) *Request { return NewRequest("GET", url) }
 
-// Head returns a new HEAD request to the provided URL.
+// NewHead returns a new HEAD request to the provided URL.
 //
 // A Head response never contains a body, so any attempt to read its
 // body is an error.
-func Head(url string) *Request { return NewRequest("HEAD", url) }
+func NewHead(url string) *Request { return NewRequest("HEAD", url) }
 
-// Post returns a new POST request to the provided URL.
-func Post(url string) *Request { return NewRequest("POST", url) }
+// NewPost returns a new POST request to the provided URL.
+func NewPost(url string) *Request { return NewRequest("POST", url) }
 
-// Patch returns a new PATCH request to the provided URL.
-func Patch(url string) *Request { return NewRequest("PATCH", url) }
-
-// Put returns a new PUT request to the provided URL.
-func Put(url string) *Request { return NewRequest("PUT", url) }
+// NewPut returns a new PUT request to the provided URL.
+func NewPut(url string) *Request { return NewRequest("PUT", url) }
 
 // NewRequest returns a new request to the provided URL using the
 // provided HTTP method.
@@ -165,10 +165,6 @@ func (r *Request) Pool(pool Pool) *Request {
 	return r
 }
 
-type Response struct {
-	// * opaque value type
-}
-
 // Header are the response headers.
 type Header struct {
 	// * opaque value type (try for small struct)
@@ -182,13 +178,8 @@ func (h Header) Get(key string) string           { panic("TODO") }
 func (h Header) GetMultiple(key string) []string { panic("TODO") }
 func (h Header) ContainsToken(key, token string) { panic("TODO") }
 
-func (r Response) Connection() Connection { panic("TODO") }
-func (r Response) Header() Header         { panic("TODO") }
-func (r Response) Status() http.Status    { panic("TODO") }
-
 type Connection struct {
 	// * opaque value type
-	protoMajor, protoMinor byte
 
 	// TLS info
 }
@@ -218,14 +209,14 @@ func (r *Request) Timeout(d time.Duration) *Request {
 // On error, the the error will be one of:
 //
 //   -
-func (r *Request) Do(ctx context.Context, h Handler) (Response, error) {
+func (r *Request) Do(ctx context.Context, h Handler) (ResponseData, error) {
 	panic("TODO")
 }
 
 func JSONUnmarshal(dst interface{}) Handler {
-	return func(s HandlerState) (ResponseData, error) {
+	return HandlerFunc(func(s HandlerState) (ResponseData, error) {
 		panic("TODO")
-	}
+	})
 }
 
 // ResponseData represents the response body in its possibly
@@ -236,6 +227,8 @@ func JSONUnmarshal(dst interface{}) Handler {
 // as documentation only.
 type ResponseData interface{}
 
+// HandlerState is the interface available for Handlers while processing
+// an HTTP response from a server.
 type HandlerState interface {
 	Connection() Connection
 	Status() http.Status
@@ -246,9 +239,20 @@ type HandlerState interface {
 	unexported()
 }
 
-type Handler func(HandlerState) (ResponseData, error)
+// Handler is the interface for something that can process an HTTP
+// response from a server.
+type Handler interface {
+	ReadHTTP(HandlerState) (ResponseData, error)
+}
 
-// StatusError is the.
+// HandlerFunc implements Handler using the underlying func.
+type HandlerFunc func(HandlerState) (ResponseData, error)
+
+func (hf HandlerFunc) ReadHTTP(s HandlerState) (ResponseData, error) {
+	return hf(s)
+}
+
+// StatusError is the error type returned when the status was not 2xx.
 type StatusError struct {
 	Status http.Status
 }
