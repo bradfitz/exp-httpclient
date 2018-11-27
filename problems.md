@@ -96,7 +96,7 @@ is to make an expensive not-fully-deep but not-super-shallow clone of a Request 
 [`Request.WithContext`](https://golang.org/pkg/net/http/#Request.WithContext).
 
 If you knew your requests shouldn't take longer than 5 seconds but you
-always wanted to accept a context for cancelation, you'd write
+always wanted to accept a context for cancellation, you'd write
 something like this today:Today you'd write somethin to write:
 
 ```go
