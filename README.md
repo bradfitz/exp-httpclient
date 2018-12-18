@@ -6,11 +6,16 @@ the [Go language](https://golang.org/)'s
 [`Client`](https://golang.org/pkg/net/http/#Client) and 
 [`Transport`](https://golang.org/pkg/net/http/#Transport).
 
+Initially, though, it collects problems with the current API. The
+actual solution has not yet been designed.
+
 # FAQ
 
 ## What's wrong with Go's HTTP client?
 
 See the [list of problems](problems.md).
+
+Or see the [overview presentation](https://docs.google.com/presentation/d/e/2PACX-1vTTFQjMSxai7TvhBJgkJf4K3RrT3tJrP7KUQ3rZB8e4UL7grCnxQh7o4yYYvyYugnkcfVwvTrwA23B0/pub?start=false&loop=false&delayms=3000) for the problems in a different format.
 
 ## What about the Server?
 
