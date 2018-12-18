@@ -31,6 +31,13 @@ the net/http package for over 8 years and have plenty of gripes about
 it. I welcome all input. If we're going to finally change it, we
 should get it right, so there's no need to rush this process.
 
+## Contributing
+
+This repo is temporary and doesn't accept PRs and issues are disabled.
+It will move at some point to Go's repos with Go's bots and policies.
+
+For now, discuss at https://github.com/golang/go/issues/23707
+
 ## What's the plan?
 
 Roughly:
