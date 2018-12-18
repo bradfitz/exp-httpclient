@@ -4,15 +4,16 @@
 
 package http
 
-// Status is an HTTP status code.
+// Status is an HTTP status code along with an optional
+// HTTP/1 reason-phrase.
 //
-// See RFC xxxx
+// See RFC 7231 section 6 for details.
 //
-// 1xx:
-// 2xx:
-// 3xx:
-// ...
-// TODO
+//    1xx: ...
+//    2xx: ...
+//    3xx: ...
+//    4xx: ...
+//    5xx: ...
 type Status struct {
 	code uint16
 	text string
@@ -24,6 +25,11 @@ func NewStatus(code int, text string) Status {
 
 // Code returns the numeric HTTP status code.
 func (s Status) Code() int { return int(s.code) }
+
+// Valid reports whether the status is in a known range (1xx to 5xx).
+func (s Status) Valid() bool {
+	return s.code >= 100 && s.code <= 599
+}
 
 // Text returns the textual description of the status code.
 //

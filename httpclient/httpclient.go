@@ -2,10 +2,24 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package httpclient is an experimental design for a new Go HTTP client.
+// Package httpclient is a mix of potential ideas (some good, some
+// bad) for what a new Go HTTP client might look like. This is not
+// intended to be usable or even close to it. It's just for getting a
+// feel for what we might do and having something to look at in godoc
+// and be able to write & compile non-working example code.
 //
-// It does not work. Do not use it. It exists for brainstorming,
-// prototyping, and reviewing godoc only.
+// In particular, this package would eventually probably use generics,
+// which aren't yet available in Go, so they're hackily faked in
+// places. And the builder pattern used in this package would probably
+// be replaced by an functional option pattern, which is also somewhat
+// shown in this package.
+//
+// This package is not meant to be evaluated as-is. It serves as a supplemental
+// playground to the problems document:
+//
+//     https://github.com/bradfitz/exp-httpclient/
+//     https://github.com/bradfitz/exp-httpclient/blob/master/problems.md
+//
 package httpclient // import "inet.af/httpclient"
 
 import (
@@ -18,6 +32,18 @@ import (
 
 	"inet.af/http"
 )
+
+// RequestOpt is an option that modifies an HTTP fetch.
+type RequestOpt interface {
+	isRequestOpt()
+}
+
+// A Fecher executes an HTTP request and returns a Response.
+type Fetcher func(ctx context.Context, method http.Method, url string, opts ...RequestOpt) (ResponseData, error)
+
+func Fetch(genType interface{}) Fetcher {
+	panic("TODO")
+}
 
 // Request is an HTTP client request.
 //
@@ -59,6 +85,12 @@ func NewRequest(method, url string) *Request {
 // is recognized and promoted to a *bytes.Reader so it is restartable.
 // For all other types, RestartableBody should be used instead, so
 // requests can be retried.
+//
+// TODO: special cases are kinda gross. And sniffing io.Closer is also gross.
+// Should we instead require all bodies to be closeable? Should we require
+// that they're always rewindable too ala net/http.Request.GetBody?
+//
+// NOTE: see package comment about builder pattern.
 func (r *Request) Body(body io.Reader) *Request {
 	panic("TODO")
 	//if rc, ok := r.(io.ReadCloser); ok {
@@ -69,6 +101,8 @@ func (r *Request) Body(body io.Reader) *Request {
 // FormValues sets the Request's Content-Type to
 // "application/x-www-form-urlencoded" and encodes the provided data
 // values as its body.
+//
+// NOTE: see package comment about builder pattern.
 func (r *Request) FormValues(data url.Values) *Request {
 	r.SetHeader("Content-Type", "application/x-www-form-urlencoded")
 	r.Body(strings.NewReader(data.Encode()))
@@ -85,24 +119,32 @@ func (r *Request) RestartableBody(getBody func() io.Reader) *Request {
 }
 
 // SetHeader sets the header k to the value v, overwriting any previous values.
+//
+// NOTE: see package comment about builder pattern.
 func (r *Request) SetHeader(k, v string) *Request {
 	panic("TODO")
 	return r
 }
 
 // SetTrailer sets the trailer k to the value v, overwriting any previous values.
+//
+// NOTE: see package comment about builder pattern.
 func (r *Request) SetTrailer(k, v string) *Request {
 	panic("TODO")
 	return r
 }
 
 // AddHeader appends the value v to the header k.
+//
+// NOTE: see package comment about builder pattern.
 func (r *Request) AddHeader(k, v string) *Request {
 	panic("TODO")
 	return r
 }
 
 // AddTrailer appends the value v to the trailer k.
+//
+// NOTE: see package comment about builder pattern.
 func (r *Request) AddTrailer(k, v string) *Request {
 	panic("TODO")
 	return r
@@ -110,9 +152,11 @@ func (r *Request) AddTrailer(k, v string) *Request {
 
 // LimitBytes limits the response bytes.
 //
-// By default, LimitBytes is bounded to 16 MB, except when writing to disk.
+// By default, LimitBytes is bounded to a reasonable upper bound (currently 128 MiB), unless overridden by a Handler.
 //
 // To disable the limit, use a negative number.
+//
+// NOTE: see package comment about builder pattern.
 func (r *Request) LimitBytes(n int64) *Request {
 	panic("TODO")
 	return r
@@ -131,11 +175,16 @@ type RedirectState struct {
 // TODO: specifies cookies.
 //
 // As a special case, the nil redirect policy disables all redirects.
+//
+// NOTE: see package comment about builder pattern.
 func (r *Request) RedirectPolicy(policy RedirectPolicy) *Request {
 	panic("TODO")
 	return r
 }
 
+// Jar ...
+//
+// NOTE: see package comment about builder pattern.
 func (r *Request) Jar(jar nethttp.CookieJar) *Request {
 	panic("TODO")
 	return r
@@ -160,6 +209,8 @@ func DefaultPool() Pool {
 //
 //
 // As a special case, the nil pool disables connection reuse.
+//
+// NOTE: see package comment about builder pattern.
 func (r *Request) Pool(pool Pool) *Request {
 	panic("TODO")
 	return r
@@ -178,12 +229,15 @@ func (h Header) Get(key string) string           { panic("TODO") }
 func (h Header) GetMultiple(key string) []string { panic("TODO") }
 func (h Header) ContainsToken(key, token string) { panic("TODO") }
 
+// Connection represents the HTTP client's underlying connection
+// (usually TCP or TLS-over-TCP) to the server.
 type Connection struct {
 	// * opaque value type
 
 	// TLS info
 }
 
+// Protocol returns the protocol being used to talk to the server.
 func (c Connection) Protocol() http.Protocol {
 	panic("TODO")
 }
@@ -199,6 +253,8 @@ func (c Connection) Close() error {
 //
 // If the context expires first, the request still fails; the Timeout
 // cannot extend the context's lifetime.
+//
+// NOTE: see package comment about builder pattern.
 func (r *Request) Timeout(d time.Duration) *Request {
 	panic("TODO")
 	return r
@@ -213,6 +269,7 @@ func (r *Request) Do(ctx context.Context, h Handler) (ResponseData, error) {
 	panic("TODO")
 }
 
+// JSONMarshal returns a response Handler that unmarshals the JSON response into dst.
 func JSONUnmarshal(dst interface{}) Handler {
 	return HandlerFunc(func(s HandlerState) (ResponseData, error) {
 		panic("TODO")

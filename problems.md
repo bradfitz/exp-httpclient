@@ -6,7 +6,7 @@ Consider the following typical code you see Go programmers write:
 
 ```go
 func GetFoo() (*T, error) {
-    res, err := http.Get("http://example.com")
+    res, err := http.Get("http://foo/t.json")
     if err != nil {
         return nil, err
     }
@@ -45,7 +45,7 @@ fix that, we defer a `Close` to cover both exit paths:
 
 ```go
 func GetFoo() (*T, error) {
-    res, err := http.Get("http://example.com")
+    res, err := http.Get("http://foo/t.json")
     if err != nil {
         return nil, err
     }
@@ -64,7 +64,7 @@ The code above forgets to check the HTTP status in
 
 ```go
 func GetFoo() (*T, error) {
-    res, err := http.Get("http://example.com")
+    res, err := http.Get("http://foo/t.json")
     if err != nil {
         return nil, err
     }
@@ -101,13 +101,12 @@ something like this today:Today you'd write somethin to write:
 
 ```go
 func GetFoo(ctx context.Context) (*T, error) {
-    req, err := http.NewRequest("GET", "http://example.com", nil)
+    req, err := http.NewRequest("GET", "http://foo/t.json", nil)
     if err != nil {
         return nil, err 
     }
-    ctx, cancel := context.WithTimeout(ctx, 5 * time.Second)
-    defer cancel()
     req = req.WithContext(ctx)
+    res, err := http.DefaultClient.Do(req)
     if err != nil {
         return nil, err
     }
@@ -217,6 +216,7 @@ That's a lot of API bloat for users to read, and a pain for us to maintain.
 
 * No HTTP/2-specific API
 * Magic and confusing auto-upgrading to HTTP/2
+  * https://golang.org/issue/21336 - `bogus greeting when providing TLSClientConfig`
 * The connection pool management (especially for new connections of
   unknown types) between HTTP/1 and HTTP/2 is ... special. And people
   want more control, but we lack the types to give them control, given

@@ -15,7 +15,7 @@ See the [list of problems](problems.md).
 ## What about the Server?
 
 This repo does not aim to address the server side of the `net/http`
-package. The server half in better shape than the client, and it's
+package. The server half is in better shape than the client, and it's
 also easier to fix the client half without fragmenting the
 ecosystem. Changing the Server interface needs to be done much more
 carefully.
