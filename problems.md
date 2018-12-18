@@ -1,3 +1,5 @@
+**Alternate form:** [2018-12-18 slides](https://docs.google.com/presentation/d/e/2PACX-1vTTFQjMSxai7TvhBJgkJf4K3RrT3tJrP7KUQ3rZB8e4UL7grCnxQh7o4yYYvyYugnkcfVwvTrwA23B0/pub?start=false&loop=false&delayms=3000&slide=id.gc6f73a04f_0_0)
+
 # Problems with the net/http Client API
 
 This page collects problems with the existing `net/http` client interface.
