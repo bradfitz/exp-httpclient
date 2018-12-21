@@ -118,6 +118,15 @@ func (r *Request) RestartableBody(getBody func() io.Reader) *Request {
 	return r
 }
 
+// BodyFunc specifies the request body using a function.
+// The HTTP client calls the function to write the request
+// body to an io.Writer. The function may be called 0, 1
+// or multiple times.
+func (r *Request) BodyFunc(fn func(io.Writer) error) *Request {
+	panic("TODO")
+	return r
+}
+
 // SetHeader sets the header k to the value v, overwriting any previous values.
 //
 // NOTE: see package comment about builder pattern.
