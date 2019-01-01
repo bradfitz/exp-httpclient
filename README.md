@@ -1,4 +1,5 @@
 # Rethinking Go's HTTP client
+[![GoDoc](https://godoc.org/inet.af/httpclient?status.svg)](https://godoc.org/inet.af/httpclient)
 
 This repository explores redesigning the API for
 the [Go language](https://golang.org/)'s
